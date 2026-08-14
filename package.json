@@ -1,0 +1,11 @@
+{
+  "name": "urgd-webchat-relay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Website chat -> Slack (technician answers) -> back to the visitor, with AI draft/fallback and lead capture. Feeds answered Q&A back into the vector DB.",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node local-server.js",
+    "test": "node test-flow.js"
+  }
+}
