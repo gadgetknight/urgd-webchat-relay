@@ -2,5 +2,12 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     { "source": "/", "destination": "/embed.html" }
+  ],
+  "headers": [
+    { "source": "/widget.js", "headers": [ { "key": "Cache-Control", "value": "public, max-age=300, must-revalidate" } ] }
+  ],
+  "crons": [
+    { "path": "/api/selfcheck", "schedule": "0 * * * *" },
+    { "path": "/api/ingest", "schedule": "0 10 * * 1" }
   ]
 }

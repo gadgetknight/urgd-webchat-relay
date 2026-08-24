@@ -1,0 +1,21 @@
+display_information:
+  name: Website Chat
+  description: Relays UR Gadget Doctors website questions into #website-chat
+  background_color: "#1f6feb"
+features:
+  bot_user:
+    display_name: Website Chat
+    always_online: true
+oauth_config:
+  scopes:
+    bot:
+      - chat:write
+      - channels:history
+settings:
+  event_subscriptions:
+    request_url: https://webchat-relay.vercel.app/api/slack/events
+    bot_events:
+      - message.channels
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false

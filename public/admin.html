@@ -23,7 +23,7 @@
 
   <div class="card">
     <label>Admin key <span class="hint">(the ADMIN_KEY you set in Vercel; leave blank in local testing)</span></label>
-    <input type="text" id="adminKey" placeholder="admin key" />
+    <input type="password" id="adminKey" placeholder="admin key" />
     <button onclick="load()">Load settings</button>
     <span id="status"></span>
   </div>
@@ -42,8 +42,8 @@
     <div class="row"><input type="checkbox" id="leadCapture" /><label style="margin:0">Ask visitors for their name + contact (lead capture)</label></div>
 
     <h2>Business hours <span class="hint">(when a technician is watching Slack)</span></h2>
-    <label>Open (24h, e.g. 09:00)</label><input type="text" id="open" />
-    <label>Close (24h, e.g. 18:00)</label><input type="text" id="close" />
+    <label>Open (24h, e.g. 09:00)</label><input type="text" id="openTime" />
+    <label>Close (24h, e.g. 22:00)</label><input type="text" id="closeTime" />
 
     <h2>Messages</h2>
     <label>Greeting</label><input type="text" id="greeting" />
@@ -60,12 +60,12 @@ function load(){
   .then(function(s){ S=s; document.getElementById('form').style.display='block'; document.getElementById('status').textContent='loaded';
     channelId.value=s.channelId||''; timeoutMin.value=Math.round((s.timeoutSeconds||240)/60);
     afterHoursAI.checked=!!s.afterHoursAI; aiDraftToSlack.checked=!!s.aiDraftToSlack; aiFallback.checked=!!s.aiFallback; leadCapture.checked=!!s.leadCapture;
-    open.value=(s.businessHours&&s.businessHours.open)||'09:00'; close.value=(s.businessHours&&s.businessHours.close)||'18:00';
+    openTime.value=(s.businessHours&&s.businessHours.open)||'09:00'; closeTime.value=(s.businessHours&&s.businessHours.close)||'18:00';
     greeting.value=s.greeting||''; waitingMessage.value=s.waitingMessage||'';
   }).catch(function(e){ document.getElementById('status').textContent='error: '+e.message+' (check admin key)'; });
 }
 function save(){
-  var bh=Object.assign({},S.businessHours||{},{open:open.value,close:close.value});
+  var bh=Object.assign({},S.businessHours||{},{open:openTime.value,close:closeTime.value});
   var patch={channelId:channelId.value,timeoutSeconds:Math.max(60,(+timeoutMin.value||4)*60),
     afterHoursAI:afterHoursAI.checked,aiDraftToSlack:aiDraftToSlack.checked,aiFallback:aiFallback.checked,leadCapture:leadCapture.checked,
     businessHours:bh,greeting:greeting.value,waitingMessage:waitingMessage.value};

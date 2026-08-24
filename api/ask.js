@@ -43,6 +43,7 @@ module.exports = async (req, res) => {
   await store.set(`sess:${sessionId}`, {
     sessionId, question, contact, threadTs,
     status: 'waiting', answer: null, answeredBy: null, createdAt: Date.now(),
+    timeoutSeconds: s.timeoutSeconds, aiFallback: s.aiFallback,  // snapshot so /api/poll needs no extra read
   }, TTL_DEFAULT);
   await store.set(`thread:${threadTs}`, sessionId, TTL_DEFAULT);
 

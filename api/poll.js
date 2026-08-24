@@ -4,7 +4,6 @@
 'use strict';
 const { sendJson, preflight } = require('../lib/http');
 const { store } = require('../lib/store');
-const { getSettings } = require('../lib/settings');
 const { draftAnswer } = require('../lib/ai');
 
 module.exports = async (req, res) => {
@@ -20,10 +19,11 @@ module.exports = async (req, res) => {
     return sendJson(res, 200, { status: 'answered', answer: sess.answer, answeredBy: sess.answeredBy });
   }
 
-  // Timed out waiting for a human?
-  const s = await getSettings();
+  // Timed out waiting for a human? (uses the snapshot taken in /api/ask — no extra read)
   const waitedMs = Date.now() - sess.createdAt;
-  if (s.aiFallback && waitedMs > s.timeoutSeconds * 1000) {
+  const timeoutSeconds = sess.timeoutSeconds || 240;
+  const aiFallback = sess.aiFallback !== false;
+  if (aiFallback && waitedMs > timeoutSeconds * 1000) {
     const ai = (await draftAnswer(sess.question)) ||
       "Our technician is tied up at the moment — leave your name and number and we'll get right back to you.";
     sess.status = 'answered'; sess.answer = ai; sess.answeredBy = 'ai';

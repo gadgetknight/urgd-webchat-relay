@@ -9,6 +9,9 @@ const path = require('path');
 const routes = {
   '/api/ask': require('./api/ask'),
   '/api/poll': require('./api/poll'),
+  '/api/health': require('./api/health'),
+  '/api/ingest': require('./api/ingest'),
+  '/api/selfcheck': require('./api/selfcheck'),
   '/api/slack/events': require('./api/slack/events'),
   '/api/config': require('./api/config'),
   '/api/lead': require('./api/lead'),
