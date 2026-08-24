@@ -1,3 +1,8 @@
+# Version 1.1.0  2026-08-24
+# CHANGELOG
+# 1.1.0  2026-08-24  Ignore throwaway probe-syncro.js (hits live Syncro).
+# 1.0.0              Initial ignore list.
+
 node_modules/
 .env
 .data-test/
@@ -7,3 +12,4 @@ node_modules/
 .vercel
 .data-smoke/
 .data*/
+probe-syncro.js

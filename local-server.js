@@ -1,6 +1,12 @@
 // local-server.js — run the relay locally for testing (no Vercel needed).
 //   node local-server.js
 // Serves the API handlers in ./api and static files in ./public.
+//
+// Version 1.1.0  2026-08-24
+//
+// CHANGELOG
+// 1.1.0  2026-08-24  Wired POST /api/ticket.
+// 1.0.0              Initial local server for API handlers + public/.
 'use strict';
 const http = require('http');
 const fs = require('fs');
@@ -16,6 +22,7 @@ const routes = {
   '/api/config': require('./api/config'),
   '/api/lead': require('./api/lead'),
   '/api/conversations': require('./api/conversations'),
+  '/api/ticket': require('./api/ticket'),
 };
 
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };

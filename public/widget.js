@@ -4,6 +4,14 @@
 //   <script>window.URGDChat={relayUrl:'https://YOUR-RELAY.vercel.app',botName:'UR Gadget Doctors'}</script>
 //   <script src="https://YOUR-RELAY.vercel.app/widget.js" defer></script>
 // Optional config: color (brand hex), greeting, leadCapture:false.
+//
+// Version 1.1.0  2026-08-24
+//
+// CHANGELOG
+// 1.1.0  2026-08-24  First-open choice: "Check my ticket" (live Syncro via
+//                    /api/ticket) or "Ask a question" (existing relay). Ticket
+//                    lookup never fires lead capture.
+// 1.0.0              Initial Shadow DOM chat bubble (ask / poll / lead).
 (function () {
   'use strict';
   var CFG = window.URGDChat || {};
@@ -39,9 +47,16 @@
   '.them{background:#fff;border:1px solid #e4e7eb;color:#1a1a1a}' +
   '.me{background:' + COLOR + ';color:#fff;margin-left:auto}' +
   '.note{font-size:12px;color:#6b7280;text-align:center;margin:8px 0}' +
-  '.inrow{display:flex;align-items:center;border-top:1px solid #e4e7eb;padding:8px;background:#fff}' +
+  '.inrow{display:none;align-items:center;border-top:1px solid #e4e7eb;padding:8px;background:#fff}' +
+  '.asking .inrow{display:flex}' +
   '.inrow input{flex:1;border:none;padding:10px;font-size:14px;outline:none;color:#111;background:#fff}' +
   '.send{background:' + COLOR + ';border:none;border-radius:9px;padding:9px 12px;cursor:pointer;display:flex;align-items:center}' +
+  '.choices{display:flex;flex-direction:column;gap:8px;margin:8px 0}' +
+  '.choice{background:' + COLOR + ';color:#fff;border:none;border-radius:9px;padding:10px;cursor:pointer;font-size:14px}' +
+  '.choice:hover{filter:brightness(1.06)}' +
+  '.tform{background:#fff;border-top:1px solid #e4e7eb;padding:11px;font-size:13px;color:#111}' +
+  '.tform input{width:100%;border:1px solid #d0d7de;border-radius:7px;padding:9px;margin:5px 0;font-size:13px;color:#111;background:#fff}' +
+  '.tform button{width:100%;background:' + COLOR + ';color:#fff;border:none;border-radius:7px;padding:10px;cursor:pointer;font-size:14px}' +
   '.lead{background:#fff;border-top:1px solid #e4e7eb;padding:11px;font-size:13px;color:#111}' +
   '.lead input{width:100%;border:1px solid #d0d7de;border-radius:7px;padding:9px;margin:5px 0;font-size:13px;color:#111;background:#fff}' +
   '.lead button{width:100%;background:#1a7f37;color:#fff;border:none;border-radius:7px;padding:10px;cursor:pointer;font-size:14px}' +
@@ -57,6 +72,7 @@
     '<div class="panel">' +
       '<div class="hd">' + NAME + '<small>Ask about any repair</small></div>' +
       '<div class="msgs"></div>' +
+      '<div class="ticketwrap"></div>' +
       '<div class="leadwrap"></div>' +
       '<div class="inrow"><input type="text" placeholder="Type your question…"/><button class="send" aria-label="Send">' + sendIcon + '</button></div>' +
     '</div>';
@@ -64,6 +80,7 @@
 
   var btn = root.querySelector('.btn');
   var msgs = root.querySelector('.msgs');
+  var ticketwrap = root.querySelector('.ticketwrap');
   var leadwrap = root.querySelector('.leadwrap');
   var input = root.querySelector('.inrow input');
   var sendBtn = root.querySelector('.send');
@@ -73,9 +90,79 @@
   function note(t) { var d = document.createElement('div'); d.className = 'note'; d.textContent = t; msgs.appendChild(d); msgs.scrollTop = msgs.scrollHeight; return d; }
   function typing() { var d = document.createElement('div'); d.className = 'msg them dots'; d.innerHTML = '<span></span><span></span><span></span>'; msgs.appendChild(d); msgs.scrollTop = msgs.scrollHeight; return d; }
 
+  function clearChoices() {
+    var nodes = msgs.querySelectorAll('.choices');
+    for (var i = 0; i < nodes.length; i++) nodes[i].remove();
+  }
+  function showChoices(askOnly) {
+    clearChoices();
+    var d = document.createElement('div');
+    d.className = 'choices';
+    d.innerHTML = (askOnly ? '' : '<button type="button" class="choice" data-act="ticket">Check my ticket</button>') +
+      '<button type="button" class="choice" data-act="ask">Ask a question</button>';
+    var ticketBtn = d.querySelector('[data-act="ticket"]');
+    if (ticketBtn) ticketBtn.addEventListener('click', startTicket);
+    d.querySelector('[data-act="ask"]').addEventListener('click', startAsk);
+    msgs.appendChild(d);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+  function startAsk() {
+    clearChoices();
+    ticketwrap.innerHTML = '';
+    wrap.classList.add('asking');
+    input.focus();
+  }
+  function startTicket() {
+    clearChoices();
+    wrap.classList.remove('asking');
+    ticketwrap.innerHTML =
+      '<div class="tform">' +
+        '<input class="tn" placeholder="Ticket number"/>' +
+        '<input class="l4" placeholder="Last 4 of phone" inputmode="numeric" maxlength="4"/>' +
+        '<button type="button">Check status</button>' +
+      '</div>';
+    var tn = ticketwrap.querySelector('.tn');
+    var l4 = ticketwrap.querySelector('.l4');
+    ticketwrap.querySelector('button').addEventListener('click', function () { submitTicket(tn, l4); });
+    tn.addEventListener('keydown', function (e) { if (e.key === 'Enter') l4.focus(); });
+    l4.addEventListener('keydown', function (e) { if (e.key === 'Enter') submitTicket(tn, l4); });
+  }
+  function submitTicket(tn, l4) {
+    var number = tn.value.trim();
+    var last4 = l4.value.trim();
+    if (!number || last4.length !== 4) return;
+    ticketwrap.innerHTML = '';
+    var t = typing();
+    fetch(api('/api/ticket'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId: sid, ticketNumber: number, last4: last4 })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        t.remove();
+        if (d.ok) {
+          var updated = d.updatedAt || '';
+          if (updated) updated = updated.charAt(0).toUpperCase() + updated.slice(1);
+          bubble('Ticket #' + d.number + ' — ' + d.status + '.' + (updated ? ' ' + updated + '.' : ''), 'them');
+        } else {
+          bubble(d.message || 'I could not match that ticket number and phone. Double-check them, or ask a question and a technician will help.', 'them');
+          showChoices(true);
+        }
+      })
+      .catch(function () {
+        t.remove();
+        bubble("Sorry — something went wrong. Please call us and we'll help right away.", 'them');
+        showChoices(true);
+      });
+  }
+
   btn.addEventListener('click', function () {
     wrap.classList.toggle('open');
-    if (wrap.classList.contains('open') && !msgs.children.length) bubble(GREETING, 'them');
+    if (wrap.classList.contains('open') && !msgs.children.length) {
+      showChoices();
+      bubble(GREETING, 'them');
+    }
   });
 
   function send() {

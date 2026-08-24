@@ -1,5 +1,11 @@
 // GET /api/health — public diagnostic (no secrets). Shows what's wired up so we
 // can tell at a glance whether Slack, AI, and the Upstash "memory" are connected.
+//
+// Version 1.1.0  2026-08-24
+//
+// CHANGELOG
+// 1.1.0  2026-08-24  Added syncroKeySet and syncroSubdomainSet (booleans only).
+// 1.0.0              Initial public diagnostic (no secrets).
 'use strict';
 const { sendJson, preflight } = require('../lib/http');
 const { store, usingUpstash } = require('../lib/store');
@@ -29,6 +35,8 @@ module.exports = async (req, res) => {
     openaiKeySet: Boolean(process.env.OPENAI_API_KEY),
     pineconeKeySet: Boolean(process.env.PINECONE_API_KEY),
     adminKeySet: Boolean(process.env.ADMIN_KEY),
+    syncroKeySet: Boolean(process.env.SYNCRO_API_KEY),
+    syncroSubdomainSet: Boolean(process.env.SYNCRO_SUBDOMAIN),
     lastSlackEvent,   // what the last Slack event delivery looked like (no secrets)
     lastRoute,        // where the last reply got in the routing pipeline
     lastRouted,       // last answer successfully routed back to a customer

@@ -5,6 +5,13 @@
 // Note: this catches partial failures (memory down, keys missing/invalid) while
 // the relay itself is up. For a full-outage alarm, also point a free external
 // monitor (e.g. UptimeRobot) at /api/health.
+//
+// Version 1.1.0  2026-08-24
+//
+// CHANGELOG
+// 1.1.0  2026-08-24  Added a Ticket lookup problem line when SYNCRO_API_KEY
+//                    is missing.
+// 1.0.0              Initial cron self-check with state-change Slack alerts.
 'use strict';
 const { sendJson } = require('../lib/http');
 const { store, usingUpstash } = require('../lib/store');
@@ -39,6 +46,7 @@ module.exports = async (req, res) => {
   if (!process.env.OPENAI_API_KEY) problems.push('OpenAI key missing — AI fallback/draft is off.');
   if (!process.env.PINECONE_API_KEY) problems.push('Pinecone key missing — no knowledge base.');
   else if (!(await ai.pineconeReachable())) problems.push('Pinecone unreachable (bad key or index gone).');
+  if (!process.env.SYNCRO_API_KEY) problems.push('Ticket lookup problem: SYNCRO_API_KEY missing — ticket status checks are off.');
 
   const channel = process.env.SLACK_ALERT_CHANNEL_ID || process.env.SLACK_CHANNEL_ID;
   const healthy = problems.length === 0;
