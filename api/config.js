@@ -1,6 +1,12 @@
 // GET  /api/config           -> current settings (admin key required)
 // POST /api/config { patch }  -> update settings (admin key required)
 // Used by the control panel. Protected by the ADMIN_KEY env var.
+//
+// Version 1.2.0  2026-08-24
+//
+// CHANGELOG
+// 1.2.0  2026-08-24  Allow ticketSummary and ticketSummaryShowPrices patches.
+// 1.0.0              Initial GET/POST settings (admin key).
 'use strict';
 const { sendJson, readBody, preflight } = require('../lib/http');
 const { getSettings, saveSettings } = require('../lib/settings');
@@ -21,7 +27,8 @@ module.exports = async (req, res) => {
     const patch = json && typeof json === 'object' ? json : {};
     // Only allow known keys to be patched.
     const allowed = ['channelId', 'channelName', 'botName', 'greeting', 'waitingMessage',
-      'timeoutSeconds', 'afterHoursAI', 'aiDraftToSlack', 'aiFallback', 'leadCapture', 'businessHours'];
+      'timeoutSeconds', 'afterHoursAI', 'aiDraftToSlack', 'aiFallback', 'leadCapture',
+      'ticketSummary', 'ticketSummaryShowPrices', 'businessHours'];
     const clean = {};
     for (const k of allowed) if (k in patch) clean[k] = patch[k];
     return sendJson(res, 200, await saveSettings(clean));

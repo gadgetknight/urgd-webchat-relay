@@ -5,9 +5,11 @@
 //   <script src="https://YOUR-RELAY.vercel.app/widget.js" defer></script>
 // Optional config: color (brand hex), greeting, leadCapture:false.
 //
-// Version 1.1.0  2026-08-24
+// Version 1.2.0  2026-08-24
 //
 // CHANGELOG
+// 1.2.0  2026-08-24  Ticket result: greeting+headline bubble, then summary
+//                    bubble when updateSummary is present. Fallback unchanged.
 // 1.1.0  2026-08-24  First-open choice: "Check my ticket" (live Syncro via
 //                    /api/ticket) or "Ask a question" (existing relay). Ticket
 //                    lookup never fires lead capture.
@@ -142,9 +144,14 @@
       .then(function (d) {
         t.remove();
         if (d.ok) {
-          var updated = d.updatedAt || '';
-          if (updated) updated = updated.charAt(0).toUpperCase() + updated.slice(1);
-          bubble('Ticket #' + d.number + ' — ' + d.status + '.' + (updated ? ' ' + updated + '.' : ''), 'them');
+          if (d.updateSummary) {
+            bubble((d.firstName ? ('Hey ' + d.firstName + ' — ') : '') + 'Ticket #' + d.number, 'them');
+            bubble(d.status + '. ' + d.updateSummary, 'them');
+          } else {
+            var updated = d.updatedAt || '';
+            if (updated) updated = updated.charAt(0).toUpperCase() + updated.slice(1);
+            bubble('Ticket #' + d.number + ' — ' + d.status + '.' + (updated ? ' ' + updated + '.' : ''), 'them');
+          }
         } else {
           bubble(d.message || 'I could not match that ticket number and phone. Double-check them, or ask a question and a technician will help.', 'them');
           showChoices(true);

@@ -4,9 +4,11 @@
 // Slack -> technician replies in-thread -> answer routed back to the customer;
 // plus the timeout -> fallback path; plus ticket lookup (Syncro mocked).
 //
-// Version 1.1.0  2026-08-24
+// Version 1.2.0  2026-08-24
 //
 // CHANGELOG
+// 1.2.0  2026-08-24  pickComment skips hidden:true; success payload includes
+//                    firstName/updateSummary (summary null without an API key).
 // 1.1.0  2026-08-24  Added mock-mode ticket lookup tests (malformed, wrong
 //                    last4, rate limit, status-only success). No API key needed.
 // 1.0.0              Initial ask → Slack → poll / timeout flow.
@@ -30,6 +32,7 @@ const ticketH = require('./api/ticket');
 const syncro = require('./lib/syncro');
 const { store } = require('./lib/store');
 const { saveSettings } = require('./lib/settings');
+const { pickComment } = require('./lib/ticket-summary');
 
 function res() {
   const r = { statusCode: 0, body: null, headers: {} };
@@ -92,16 +95,23 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   syncro.findTicketByNumber = async (n) => ({
     ok: true,
     ticket: {
+      id: 99,
       number: Number(n) || n,
       status: 'In Progress',
       updated_at: '2026-08-21T12:00:00-04:00',
       customer_id: 99,
+      customer: { firstname: 'Adrian', phone: '6095554567' },
+      comments: [
+        { id: 1, hidden: false, created_at: '2026-08-20T12:00:00-04:00', body: 'Your device is on the bench. We will update you when diagnosis is done.' },
+        { id: 2, hidden: true, created_at: '2026-08-21T12:00:00-04:00', body: 'ordering charger, $40 cost, do not tell customer' },
+      ],
     },
   });
   syncro.getCustomer = async () => ({
     ok: true,
-    customer: { phone: '6095554567', mobile: '' },
+    customer: { firstname: 'Adrian', phone: '6095554567', mobile: '' },
   });
+  syncro.getTicket = async (id) => syncro.findTicketByNumber(id);
 
   console.log('7) Ticket lookup: malformed input → generic failure (HTTP 200)');
   let t = await call(ticketH, { method: 'POST', url: '/api/ticket', headers: {}, body: { sessionId: 'ST1', ticketNumber: '4471', last4: '12' } });
@@ -127,14 +137,33 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const rl = await store.get('ticket:rl:sess:ST3');
   ok(rl && rl.hits && rl.hits.length === 5, 'session counter stops at 5 (6th did not call Syncro)');
 
-  console.log('10) Ticket lookup: success returns status only; not logged to conversations');
+  console.log('10) Ticket lookup: success returns status + firstName; summary null without OpenAI; not logged');
   t = await call(ticketH, { method: 'POST', url: '/api/ticket', headers: {}, body: { sessionId: 'ST4', ticketNumber: '4471', last4: '4567' } });
   ok(t.code === 200 && t.json.ok === true, 'success ok');
   ok(t.json.number === 4471 && t.json.status === 'In Progress', 'returns number + mapped status');
   ok(t.json.updatedAt === 'last updated Friday', 'friendly last-updated date');
-  ok(Object.keys(t.json).sort().join(',') === 'number,ok,status,updatedAt', 'status-only payload (no comments/phone/name)');
+  ok(t.json.firstName === 'Adrian', 'first name only, title-cased');
+  ok(t.json.updateSummary == null, 'no OpenAI key → summary falls back to null (lookup still succeeds)');
+  ok(Object.keys(t.json).sort().join(',') === 'firstName,number,ok,status,updateSummary,updatedAt', 'no comments/phone/full name in payload');
   const convosAfterTicket = (await store.listAll('conversations')).length;
   ok(convosAfterTicket === convosBeforeTicket, 'ticket lookup not logged to conversations');
+
+  console.log('11) pickComment uses hidden===false only; skips newer internal notes');
+  const picked = pickComment({
+    comments: [
+      { id: 1, hidden: false, created_at: '2026-08-20T12:00:00-04:00', body: 'Your device is on the bench. We will update you when diagnosis is done.' },
+      { id: 2, hidden: true, created_at: '2026-08-21T12:00:00-04:00', body: 'ordering charger, $40 cost, do not tell customer' },
+    ],
+  });
+  ok(picked && picked.text.includes('on the bench') && !/do not tell|\$40/.test(picked.text), 'internal note not in source text');
+  ok(picked.skippedInternalLatest === true, 'flags that the newest comment was internal');
+  const short = pickComment({
+    comments: [
+      { id: 1, hidden: false, created_at: '2026-08-20T12:00:00-04:00', body: 'We diagnosed a failed charging port and ordered the replacement part.' },
+      { id: 2, hidden: false, created_at: '2026-08-21T12:00:00-04:00', body: 'Part ordered.' },
+    ],
+  });
+  ok(short && short.text.includes('charging port') && short.text.includes('Part ordered.'), 'short latest comment includes the previous public one');
 
   console.log(`\nRESULT: ${pass} passed, ${fail} failed`);
   try { fs.rmSync(path.join(__dirname, '.data-test'), { recursive: true, force: true }); } catch (_) {}

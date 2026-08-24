@@ -2,9 +2,12 @@
 // Live Syncro lookup: ticket number + last 4 of the phone on file → status only.
 // Never logs to the conversations list. Never logs phone digits.
 //
-// Version 1.1.0  2026-08-24
+// Version 1.2.0  2026-08-24
 //
 // CHANGELOG
+// 1.2.0  2026-08-24  On a verified lookup, add firstName + updateSummary
+//                    (public comment rewrite). Summary failure never fails
+//                    the lookup. Still never logs to conversations.
 // 1.1.0  2026-08-24  Initial. Validates input, rate-limits (5/session/15min,
 //                    20/hour global), verifies last-4 against live Syncro
 //                    ticket/customer phones, returns status only. Identical
@@ -13,6 +16,8 @@
 const { sendJson, readBody, preflight } = require('../lib/http');
 const { store } = require('../lib/store');
 const syncro = require('../lib/syncro');
+const { getSettings } = require('../lib/settings');
+const { cachedSummarise } = require('../lib/ticket-summary');
 
 const GENERIC = 'I could not match that ticket number and phone. Double-check them, or ask a question and a technician will help.';
 
@@ -88,6 +93,15 @@ function friendlyUpdated(iso) {
   return 'last updated ' + day;
 }
 
+// First whitespace token of customer.firstname, title-cased. Omit if missing
+// or it does not look like a name (never guess, never use business/full name).
+function firstNameFrom(customer) {
+  const raw = customer && customer.firstname != null ? String(customer.firstname) : '';
+  const token = raw.trim().split(/\s+/)[0] || '';
+  if (token.length < 2 || !/^[A-Za-z][A-Za-z'-]*$/.test(token)) return '';
+  return token.charAt(0).toUpperCase() + token.slice(1).toLowerCase();
+}
+
 async function takeSlot(key, max, windowSec) {
   const now = Date.now();
   const rec = (await store.get(key)) || { hits: [] };
@@ -140,10 +154,28 @@ module.exports = async (req, res) => {
   }
   if (!matched) return fail(res);
 
+  let firstName = firstNameFrom(ticket.customer || customer);
+  let updateSummary = null;
+  try {
+    const s = await getSettings();
+    if (s.ticketSummary !== false) {
+      let full = ticket;
+      if (ticket.id && syncro.getTicket) {
+        const det = await syncro.getTicket(ticket.id);
+        if (det.ok && det.ticket) full = det.ticket;
+      }
+      if (!firstName) firstName = firstNameFrom(full.customer);
+      const built = await cachedSummarise(full, { showPrices: !!s.ticketSummaryShowPrices });
+      updateSummary = built && built.summary ? built.summary : null;
+    }
+  } catch (_) { /* lookup still succeeds with status headline only */ }
+
   return sendJson(res, 200, {
     ok: true,
     number: ticket.number,
     status: statusText(ticket.status),
     updatedAt: friendlyUpdated(ticket.updated_at),
+    firstName: firstName || '',
+    updateSummary,
   });
 };

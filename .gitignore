@@ -1,5 +1,6 @@
-# Version 1.1.0  2026-08-24
+# Version 1.2.0  2026-08-24
 # CHANGELOG
+# 1.2.0  2026-08-24  Ignore preview-summaries.txt (real customer comments).
 # 1.1.0  2026-08-24  Ignore throwaway probe-syncro.js (hits live Syncro).
 # 1.0.0              Initial ignore list.
 
@@ -13,3 +14,4 @@ node_modules/
 .data-smoke/
 .data*/
 probe-syncro.js
+preview-summaries.txt

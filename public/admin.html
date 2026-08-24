@@ -1,3 +1,10 @@
+<!--
+  Version 1.2.0  2026-08-24
+
+  CHANGELOG
+  1.2.0  2026-08-24  Added ticket-summary and show-prices toggles.
+  1.0.0              Initial control panel (channel, behavior, hours, messages).
+-->
 <!doctype html>
 <html lang="en">
 <head>
@@ -40,6 +47,8 @@
     <div class="row"><input type="checkbox" id="aiDraftToSlack" /><label style="margin:0">Send the technician an AI-suggested answer to speed replies</label></div>
     <div class="row"><input type="checkbox" id="aiFallback" /><label style="margin:0">Let the AI answer if no one replies in time</label></div>
     <div class="row"><input type="checkbox" id="leadCapture" /><label style="margin:0">Ask visitors for their name + contact (lead capture)</label></div>
+    <div class="row"><input type="checkbox" id="ticketSummary" /><label style="margin:0">On ticket lookup, add a plain-English update from the latest public comment</label></div>
+    <div class="row"><input type="checkbox" id="ticketSummaryShowPrices" /><label style="margin:0">Allow dollar amounts in that ticket update (off = drop the summary if a price slips through)</label></div>
 
     <h2>Business hours <span class="hint">(when a technician is watching Slack)</span></h2>
     <label>Open (24h, e.g. 09:00)</label><input type="text" id="openTime" />
@@ -60,6 +69,7 @@ function load(){
   .then(function(s){ S=s; document.getElementById('form').style.display='block'; document.getElementById('status').textContent='loaded';
     channelId.value=s.channelId||''; timeoutMin.value=Math.round((s.timeoutSeconds||240)/60);
     afterHoursAI.checked=!!s.afterHoursAI; aiDraftToSlack.checked=!!s.aiDraftToSlack; aiFallback.checked=!!s.aiFallback; leadCapture.checked=!!s.leadCapture;
+    ticketSummary.checked=s.ticketSummary!==false; ticketSummaryShowPrices.checked=!!s.ticketSummaryShowPrices;
     openTime.value=(s.businessHours&&s.businessHours.open)||'09:00'; closeTime.value=(s.businessHours&&s.businessHours.close)||'18:00';
     greeting.value=s.greeting||''; waitingMessage.value=s.waitingMessage||'';
   }).catch(function(e){ document.getElementById('status').textContent='error: '+e.message+' (check admin key)'; });
@@ -68,6 +78,7 @@ function save(){
   var bh=Object.assign({},S.businessHours||{},{open:openTime.value,close:closeTime.value});
   var patch={channelId:channelId.value,timeoutSeconds:Math.max(60,(+timeoutMin.value||4)*60),
     afterHoursAI:afterHoursAI.checked,aiDraftToSlack:aiDraftToSlack.checked,aiFallback:aiFallback.checked,leadCapture:leadCapture.checked,
+    ticketSummary:ticketSummary.checked,ticketSummaryShowPrices:ticketSummaryShowPrices.checked,
     businessHours:bh,greeting:greeting.value,waitingMessage:waitingMessage.value};
   fetch('/api/config',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},hdr()),body:JSON.stringify(patch)})
   .then(function(r){ return r.json(); }).then(function(){ document.getElementById('status').textContent='saved ✓'; })
